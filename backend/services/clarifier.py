@@ -67,8 +67,10 @@ class Clarifier:
 
         # Check if SKU is specified
         detected_sku = self._detect_sku(query_lower)
-        if not detected_sku and not sku:
-            # Only ask if query seems product-specific
+        is_all_skus = any(w in query_lower for w in ["all", "three", "both", "every", "products"])
+        
+        if not detected_sku and not sku and not is_all_skus:
+            # Only ask if query seems product-specific but ambiguous
             if any(w in query_lower for w in ["product", "sku", "which", "specific", "underperforming"]):
                 questions.append(ClarifyingQuestion(
                     question="Which SKU would you like me to analyze?",
