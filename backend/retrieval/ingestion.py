@@ -17,7 +17,7 @@ from retrieval.vector_store import (
 logger = logging.getLogger(__name__)
 
 
-async def ingest_all_data():
+async def ingest_all_data(force: bool = False):
     """
     Full ingestion pipeline. Called once at application startup.
     1. Create vector collections
@@ -27,8 +27,16 @@ async def ingest_all_data():
     logger.info("Starting data ingestion pipeline...")
 
     # Create collections
-    vector_store.create_collection(REVIEW_COLLECTION)
-    vector_store.create_collection(COMPETITOR_COLLECTION)
+    vector_store.create_collection(REVIEW_COLLECTION, recreate=force)
+    vector_store.create_collection(COMPETITOR_COLLECTION, recreate=force)
+
+    # If collections are already populated in persistent Qdrant store, skip re-uploading
+    review_count = vector_store.count(REVIEW_COLLECTION)
+    competitor_count = vector_store.count(COMPETITOR_COLLECTION)
+    if not force and review_count > 0 and competitor_count > 0:
+        total = review_count + competitor_count
+        logger.info(f"✅ Vector store already populated ({total} vectors: {review_count} reviews, {competitor_count} competitor features).")
+        return total
 
     # Ingest reviews
     reviews = generate_reviews()
@@ -66,8 +74,10 @@ async def _ingest_reviews(reviews: list[dict]):
                     "rating": review["rating"],
                     "review_text": review["review_text"],
                     "marketplace": review["marketplace"],
+                    "city": review.get("city", ""),
                     "date": review.get("date", ""),
                     "verified_purchase": review.get("verified_purchase", True),
+                    "helpful_votes": review.get("helpful_votes", 0),
                 },
             })
 
@@ -111,3 +121,10 @@ def get_total_indexed() -> int:
         vector_store.count(REVIEW_COLLECTION)
         + vector_store.count(COMPETITOR_COLLECTION)
     )
+
+
+async def ingest_custom_reviews(reviews: list[dict]) -> int:
+    """Embed and batch store custom user-uploaded reviews."""
+    await _ingest_reviews(reviews)
+    return len(reviews)
+

@@ -13,9 +13,13 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 class Settings:
     """Application settings loaded from environment variables."""
 
-    # ── Google Gemini ───────────────────────────────────────
+    # ── Groq (primary LLM) ─────────────────────────────────
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+
+    # ── Google Gemini (fallback) ────────────────────────────
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     # ── Qdrant ──────────────────────────────────────────────
     QDRANT_URL: str = os.getenv("QDRANT_URL", "http://localhost:6333")
@@ -37,12 +41,16 @@ class Settings:
     DEMO_MODE: bool = os.getenv("DEMO_MODE", "true").lower() == "true"
 
     @classmethod
+    def is_groq_configured(cls) -> bool:
+        return bool(cls.GROQ_API_KEY)
+
+    @classmethod
     def is_google_configured(cls) -> bool:
         return bool(cls.GOOGLE_API_KEY)
 
     @classmethod
     def is_llm_configured(cls) -> bool:
-        return cls.is_google_configured()
+        return cls.is_groq_configured() or cls.is_google_configured()
 
     @classmethod
     def is_qdrant_configured(cls) -> bool:

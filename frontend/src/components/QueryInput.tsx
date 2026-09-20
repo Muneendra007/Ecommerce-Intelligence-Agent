@@ -5,20 +5,23 @@ interface Props {
     onSubmit: (query: string, mode: ResearchMode, goal: BusinessGoal, sku: string | null) => void;
     loading: boolean;
     skus: Product[];
+    initialQuery?: string;
+    initialSku?: string;
 }
 
-const EXAMPLE_QUERIES = [
-    'Why is Vitamin C Serum underperforming?',
-    'Top complaints for SKU VITC30',
-    'What features do competitors offer that we don\'t?',
-    'Based on margin optimization, what should we improve?',
+const STARTER_QUERIES = [
+    { label: '🔥 Retinol Returns', text: 'Why are customers returning the Retinol Night Cream (RET50)?' },
+    { label: '💰 Vit-C vs DermaCare', text: 'Compare our Vitamin C serum pricing and formula against DermaCare.' },
+    { label: '📈 Sunscreen Expansion', text: 'How can we scale Matte Sunscreen (SUN50) sales on Blinkit and Amazon?' },
+    { label: '🧪 Salicylic Complaints', text: 'What are the top complaint themes for Salicylic Cleanser (SALI100)?' },
+    { label: '💎 Margin Strategy', text: 'How can we increase profitability across our top 3 skincare SKUs?' },
 ];
 
-export function QueryInput({ onSubmit, loading, skus }: Props) {
-    const [query, setQuery] = useState('');
+export function QueryInput({ onSubmit, loading, skus, initialQuery = '', initialSku = '' }: Props) {
+    const [query, setQuery] = useState(initialQuery);
     const [mode, setMode] = useState<ResearchMode>('quick');
     const [goal, setGoal] = useState<BusinessGoal>('growth');
-    const [sku, setSku] = useState<string>('');
+    const [sku, setSku] = useState<string>(initialSku);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,35 +31,41 @@ export function QueryInput({ onSubmit, loading, skus }: Props) {
 
     return (
         <div className="query-panel glass-card">
-            <h2 className="panel-title">🔍 Research Query</h2>
-
             <form onSubmit={handleSubmit}>
-                {/* Controls Row */}
+                {/* Control Ribbon */}
                 <div className="controls-row">
-                    <div className="control-group">
-                        <label>Mode</label>
-                        <div className="mode-toggle">
+                    {/* Mode Segmented Switch */}
+                    <div className="control-item">
+                        <label>Analysis Depth</label>
+                        <div className="mode-segmented">
                             <button
                                 type="button"
-                                className={`toggle-btn ${mode === 'quick' ? 'active' : ''}`}
+                                className={`mode-btn ${mode === 'quick' ? 'active' : ''}`}
                                 onClick={() => setMode('quick')}
                             >
-                                ⚡ Quick
+                                <span>⚡ Quick</span>
+                                <span className="mode-badge-meta">&lt;3s</span>
                             </button>
                             <button
                                 type="button"
-                                className={`toggle-btn ${mode === 'deep' ? 'active' : ''}`}
+                                className={`mode-btn ${mode === 'deep' ? 'active' : ''}`}
                                 onClick={() => setMode('deep')}
                             >
-                                🔬 Deep
+                                <span>🔬 Deep</span>
+                                <span className="mode-badge-meta">Full</span>
                             </button>
                         </div>
                     </div>
 
-                    <div className="control-group">
-                        <label>SKU</label>
-                        <select value={sku} onChange={e => setSku(e.target.value)} className="select-input">
-                            <option value="">All SKUs</option>
+                    {/* SKU Selector */}
+                    <div className="control-item">
+                        <label>Focus Product (Optional)</label>
+                        <select
+                            value={sku}
+                            onChange={e => setSku(e.target.value)}
+                            className="modern-select"
+                        >
+                            <option value="">🌐 All Products (Brand Overview)</option>
                             {skus.map(s => (
                                 <option key={s.sku} value={s.sku}>
                                     {s.sku} — {s.name.replace('GlowSkin ', '')} (₹{s.price})
@@ -65,44 +74,58 @@ export function QueryInput({ onSubmit, loading, skus }: Props) {
                         </select>
                     </div>
 
-                    <div className="control-group">
-                        <label>Goal</label>
-                        <select value={goal} onChange={e => setGoal(e.target.value as BusinessGoal)} className="select-input">
-                            <option value="growth">📈 Growth</option>
-                            <option value="margin">💰 Margin</option>
-                            <option value="revenue">💵 Revenue</option>
-                            <option value="retention">🔄 Retention</option>
-                            <option value="profitability">📊 Profitability</option>
+                    {/* Goal Selector */}
+                    <div className="control-item">
+                        <label>Strategic Objective</label>
+                        <select
+                            value={goal}
+                            onChange={e => setGoal(e.target.value as BusinessGoal)}
+                            className="modern-select"
+                        >
+                            <option value="growth">📈 Market Growth & Acquisition</option>
+                            <option value="retention">🔄 Customer Retention & Satisfaction</option>
+                            <option value="margin">💰 Margin Optimization</option>
+                            <option value="revenue">💵 Gross Revenue Expansion</option>
+                            <option value="profitability">📊 Unit Economics & Profitability</option>
                         </select>
                     </div>
                 </div>
 
-                {/* Query Input */}
-                <div className="query-input-row">
+                {/* Main Command Bar */}
+                <div className="query-search-bar">
                     <input
                         type="text"
                         value={query}
                         onChange={e => setQuery(e.target.value)}
-                        placeholder="Ask a business question about GlowSkin products..."
-                        className="query-input"
+                        placeholder="Ask anything (e.g. 'Why is Vitamin C underperforming vs DermaCare?', 'Analyze customer complaints for SUN50')..."
+                        className="query-search-input"
                         disabled={loading}
                     />
-                    <button type="submit" disabled={loading || !query.trim()} className="submit-btn">
-                        {loading ? '⏳' : '🚀'} Research
+                    <button
+                        type="submit"
+                        disabled={loading || !query.trim()}
+                        className="query-action-btn"
+                    >
+                        {loading ? (
+                            <><span>⏳</span> Analyzing...</>
+                        ) : (
+                            <><span>🚀</span> Execute AI Query</>
+                        )}
                     </button>
                 </div>
             </form>
 
-            {/* Example Queries */}
-            <div className="example-queries">
-                <span className="example-label">Try:</span>
-                {EXAMPLE_QUERIES.map(eq => (
+            {/* Quick Starter Chips */}
+            <div className="prompt-chips-wrapper">
+                <span className="prompt-chips-label">Quick Prompts:</span>
+                {STARTER_QUERIES.map(item => (
                     <button
-                        key={eq}
-                        className="example-chip"
-                        onClick={() => setQuery(eq)}
+                        key={item.label}
+                        type="button"
+                        className="prompt-chip"
+                        onClick={() => setQuery(item.text)}
                     >
-                        {eq}
+                        {item.label}
                     </button>
                 ))}
             </div>

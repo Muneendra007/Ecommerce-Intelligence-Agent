@@ -7,10 +7,10 @@ interface Props {
 }
 
 const SUGGESTIONS = [
-    'Focus on negative reviews only',
-    'Optimize for margins instead',
-    'Compare with DermaCare specifically',
-    'Show me the competitive feature gaps',
+    'Focus on negative reviews and complaints',
+    'What price adjustment maximizes gross margin?',
+    'Compare formula and packaging with DermaCare',
+    'Draft an immediate 30-day action plan',
 ];
 
 export function FollowUp({ sessionId, onFollowUp, loading }: Props) {
@@ -24,15 +24,23 @@ export function FollowUp({ sessionId, onFollowUp, loading }: Props) {
     };
 
     return (
-        <div className="followup-panel glass-card">
-            <h3>💬 Follow-Up</h3>
-            <p className="session-id">Session: {sessionId}</p>
+        <div className="glass-card followup-panel" style={{ marginTop: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>💬</span> Intelligent Follow-Up Refinement
+                </h4>
+                <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                    Session: {sessionId.slice(0, 8)}...
+                </span>
+            </div>
 
-            <div className="suggestion-chips">
+            {/* Suggestions */}
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 {SUGGESTIONS.map(s => (
                     <button
                         key={s}
-                        className="suggestion-chip"
+                        type="button"
+                        className="prompt-chip"
                         onClick={() => onFollowUp(s)}
                         disabled={loading}
                     >
@@ -41,17 +49,22 @@ export function FollowUp({ sessionId, onFollowUp, loading }: Props) {
                 ))}
             </div>
 
+            {/* Input Bar */}
             <form onSubmit={handleSubmit} className="followup-form">
                 <input
                     type="text"
                     value={message}
                     onChange={e => setMessage(e.target.value)}
-                    placeholder="Ask a follow-up question..."
+                    placeholder="Ask a clarifying follow-up question..."
                     className="followup-input"
                     disabled={loading}
                 />
-                <button type="submit" disabled={loading || !message.trim()} className="followup-btn">
-                    Send
+                <button
+                    type="submit"
+                    disabled={loading || !message.trim()}
+                    className="followup-btn"
+                >
+                    {loading ? 'Thinking...' : 'Refine Analysis ↵'}
                 </button>
             </form>
         </div>

@@ -46,7 +46,7 @@ export interface PricingAnalysis {
 
 export interface SalesTrendInsight {
     trend: string;
-    data_points: Array<{ month: string; units: number; revenue: number; returns: number }>;
+    data_points: Array<{ month: string; units?: number; units_sold?: number; revenue: number; returns: number }>;
     analysis: string;
 }
 
@@ -86,6 +86,7 @@ export interface ResearchResponse {
     mode: ResearchMode;
     query: string;
     sku: string | null;
+    detected_goal?: string;
     analysis: StructuredAnalysis;
     clarifying_questions: ClarifyingQuestion[];
     data_gaps: string[];

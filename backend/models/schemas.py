@@ -54,8 +54,13 @@ class Review(BaseModel):
     rating: int
     review_text: str
     marketplace: str = "Amazon"
+    city: str = ""
     date: str = ""
     verified_purchase: bool = True
+    helpful_votes: int = 0
+
+class IngestReviewsRequest(BaseModel):
+    reviews: list[Review]
 
 
 # ── Research Request / Response ──────────────────────────────

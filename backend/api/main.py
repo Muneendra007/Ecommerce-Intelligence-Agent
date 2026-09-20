@@ -26,9 +26,10 @@ from models.schemas import (
     ResearchRequest, FollowUpRequest, MemoryStoreRequest,
     ResearchResponse, HealthResponse, SKUListResponse,
     ResearchMode, BusinessGoal, Product, SalesData,
+    IngestReviewsRequest,
 )
 from data.dataset import GLOWSKIN_PRODUCTS
-from retrieval.ingestion import ingest_all_data, get_total_indexed
+from retrieval.ingestion import ingest_all_data, get_total_indexed, ingest_custom_reviews
 from memory.preference_store import preference_store
 from services.reasoning import reasoning_engine
 
@@ -154,3 +155,16 @@ async def store_memory(req: MemoryStoreRequest):
     """Store a user preference."""
     await preference_store.set_preference(req.key, req.value)
     return {"status": "stored", "key": req.key, "value": req.value}
+
+
+@app.post("/api/ingest")
+async def ingest_reviews_endpoint(req: IngestReviewsRequest):
+    """Dynamically ingest custom reviews into the vector database."""
+    dict_reviews = [r.model_dump() for r in req.reviews]
+    count = await ingest_custom_reviews(dict_reviews)
+    return {
+        "status": "success",
+        "ingested_count": count,
+        "total_reviews_indexed": get_total_indexed(),
+    }
+

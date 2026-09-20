@@ -12,6 +12,7 @@ Deep Mode  (<3min): Comprehensive multi-dimensional diagnosis with strategic rec
 from __future__ import annotations
 import json
 import logging
+import re
 import uuid
 from typing import Optional
 from collections import Counter
@@ -150,7 +151,7 @@ class ReasoningEngine:
             if not product:
                 return self._error_response(
                     session_id, mode, query,
-                    f"SKU '{resolved_sku}' not found. Available: VITC30, HYALU50, RETA15"
+                    f"SKU '{resolved_sku}' not found. Available: VITC30, HYALU50, RETA15, SUN50, NIAC10, SALI100"
                 )
 
         # Apply memory preferences
@@ -178,8 +179,13 @@ class ReasoningEngine:
         else:
             analysis = await self._deep_analysis(query, resolved_sku, resolved_goal, product, reviews, competitors)
 
-        # Track cost
-        cost = cost_tracker.track_usage(session_id, 0, 0)
+        # Track cost using real LLM usage
+        usage = getattr(llm_service, "last_usage", {"input_tokens": 0, "output_tokens": 0})
+        cost = cost_tracker.track_usage(
+            session_id,
+            usage.get("input_tokens", 0),
+            usage.get("output_tokens", 0),
+        )
         analysis.cost = CostReport(**cost)
 
         if not llm_service.is_live:
@@ -421,7 +427,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code fences):
 }}"""
 
             try:
-                raw = await llm_service.generate(prompt)
+                raw = await llm_service.generate(prompt, max_tokens=1800, json_mode=True)
                 return self._parse_llm_quick_response(raw, sentiment, pricing, reviews)
             except Exception as e:
                 logger.error(f"LLM quick analysis failed: {e}")
@@ -473,7 +479,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code fences):
 }}"""
 
             try:
-                raw = await llm_service.generate(prompt)
+                raw = await llm_service.generate(prompt, max_tokens=3500, json_mode=True)
                 return self._parse_llm_deep_response(raw, sentiment, pricing, sales_trend, reviews)
             except Exception as e:
                 logger.error(f"LLM deep analysis failed: {e}")
@@ -543,21 +549,34 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code fences):
 
     # ── LLM Response Parsers ────────────────────────────────
 
+    @staticmethod
+    def _extract_json(raw: str) -> dict:
+        """Extract and parse JSON from LLM output, handling fences, markdown, and preambles."""
+        cleaned = raw.strip()
+        # 1. Match code fence if present
+        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
+        if match:
+            cleaned = match.group(1).strip()
+        else:
+            # 2. Extract substring between first { and last }
+            first_brace = cleaned.find("{")
+            last_brace = cleaned.rfind("}")
+            if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+                cleaned = cleaned[first_brace:last_brace + 1].strip()
+
+        # Clean trailing commas before closing braces/brackets if any
+        cleaned = re.sub(r",\s*([\]}])", r"\1", cleaned)
+        return json.loads(cleaned)
+
     def _parse_llm_quick_response(
         self, raw: str, sentiment: list[SentimentCluster],
         pricing: Optional[PricingAnalysis], reviews: list[dict],
     ) -> StructuredAnalysis:
         """Parse LLM JSON response into StructuredAnalysis for quick mode."""
         try:
-            # Clean potential markdown code fences
-            cleaned = raw.strip()
-            if cleaned.startswith("```"):
-                cleaned = cleaned.split("\n", 1)[1]
-                if cleaned.endswith("```"):
-                    cleaned = cleaned.rsplit("```", 1)[0]
-            data = json.loads(cleaned)
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse LLM JSON response, using raw text")
+            data = self._extract_json(raw)
+        except Exception as err:
+            logger.warning(f"Failed to parse LLM JSON response ({err}), using raw text")
             return StructuredAnalysis(
                 executive_summary=raw[:500],
                 sentiment_breakdown=sentiment,
@@ -612,14 +631,9 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code fences):
     ) -> StructuredAnalysis:
         """Parse LLM JSON response into StructuredAnalysis for deep mode."""
         try:
-            cleaned = raw.strip()
-            if cleaned.startswith("```"):
-                cleaned = cleaned.split("\n", 1)[1]
-                if cleaned.endswith("```"):
-                    cleaned = cleaned.rsplit("```", 1)[0]
-            data = json.loads(cleaned)
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse LLM deep JSON response, using raw text")
+            data = self._extract_json(raw)
+        except Exception as err:
+            logger.warning(f"Failed to parse LLM deep JSON response ({err}), using raw text")
             return StructuredAnalysis(
                 executive_summary=raw[:500],
                 sentiment_breakdown=sentiment,
@@ -819,7 +833,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code fences):
         competitor_prices = {}
         for p in ALL_PRODUCTS:
             if p["brand"] != "GlowSkin" and p["category"] == product["category"]:
-                competitor_prices[f"{p['brand']} {p['name'].split()[-2]} {p['name'].split()[-1]}"] = p["price"]
+                competitor_prices[f"{p['brand']} - {p['name']}"] = p["price"]
 
         avg_competitor = sum(competitor_prices.values()) / len(competitor_prices) if competitor_prices else product["price"]
         diff_pct = ((product["price"] - avg_competitor) / avg_competitor) * 100

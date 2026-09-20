@@ -23,8 +23,12 @@ GOAL_KEYWORDS = {
     "cost": BusinessGoal.MARGIN,
 }
 
-SKU_KEYWORDS = ["vitc30", "hyalu50", "reta15", "vitamin c", "moisturizer",
-                "hyaluronic", "retinol", "night cream", "serum"]
+SKU_KEYWORDS = [
+    "vitc30", "hyalu50", "reta15", "sun50", "niac10", "sali100",
+    "vitamin c", "moisturizer", "hyaluronic", "retinol", "night cream",
+    "serum", "sunscreen", "spf", "niacinamide", "zinc", "cleanser",
+    "salicylic", "face wash"
+]
 
 FOCUS_KEYWORDS = {
     "negative": "negative_reviews",
@@ -74,7 +78,15 @@ class Clarifier:
             if any(w in query_lower for w in ["product", "sku", "which", "specific", "underperforming"]):
                 questions.append(ClarifyingQuestion(
                     question="Which SKU would you like me to analyze?",
-                    options=["VITC30 — Vitamin C Serum", "HYALU50 — Hyaluronic Acid Moisturizer", "RETA15 — Retinol Night Cream", "All SKUs"],
+                    options=[
+                        "VITC30 — Vitamin C Serum",
+                        "HYALU50 — Hyaluronic Acid Moisturizer",
+                        "RETA15 — Retinol Night Cream",
+                        "SUN50 — Matte Sunscreen SPF 50",
+                        "NIAC10 — 10% Niacinamide Serum",
+                        "SALI100 — 2% Salicylic Cleanser",
+                        "All SKUs"
+                    ],
                     context="Focusing on a specific SKU enables deeper analysis.",
                 ))
 
@@ -107,9 +119,13 @@ class Clarifier:
     def _detect_sku(self, query: str) -> Optional[str]:
         """Detect SKU reference in query."""
         sku_map = {
-            "vitc30": "VITC30", "vitamin c": "VITC30", "serum": "VITC30",
+            "vitc30": "VITC30", "vitamin c": "VITC30",
             "hyalu50": "HYALU50", "hyaluronic": "HYALU50", "moisturizer": "HYALU50",
             "reta15": "RETA15", "retinol": "RETA15", "night cream": "RETA15",
+            "sun50": "SUN50", "sunscreen": "SUN50", "spf": "SUN50",
+            "niac10": "NIAC10", "niacinamide": "NIAC10",
+            "sali100": "SALI100", "salicylic": "SALI100", "cleanser": "SALI100", "face wash": "SALI100",
+            "serum": "VITC30",  # default serum
         }
         for keyword, sku in sku_map.items():
             if keyword in query:

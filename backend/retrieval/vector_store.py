@@ -175,17 +175,20 @@ class QdrantVectorStore:
         """Convert any string ID to a deterministic UUID string for Qdrant."""
         return str(uuid.uuid5(self._NS, id_str))
 
-    def create_collection(self, name: str, vector_size: int = 384):
+    def create_collection(self, name: str, vector_size: int = 384, recreate: bool = False):
         """Create collection in active store."""
         if self._use_fallback:
             self._fallback.create_collection(name, vector_size)
         else:
-            from qdrant_client.models import Distance, VectorParams
+            from qdrant_client.models import Distance, VectorParams, PayloadSchemaType
             try:
                 # Check if collection exists first
                 collections = self._qdrant_client.get_collections().collections
                 existing = [c.name for c in collections]
-                if name in existing:
+                if name in existing and not recreate:
+                    logger.info(f"Qdrant collection '{name}' already exists. Skipping recreation.")
+                    return
+                if name in existing and recreate:
                     # Delete and recreate for clean state
                     self._qdrant_client.delete_collection(name)
                 self._qdrant_client.create_collection(
@@ -193,6 +196,23 @@ class QdrantVectorStore:
                     vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
                 )
                 logger.info(f"Created Qdrant collection: {name}")
+
+                # Create payload indexes for fast and reliable filtering
+                indexed_fields = {
+                    "sku": PayloadSchemaType.KEYWORD,
+                    "brand": PayloadSchemaType.KEYWORD,
+                    "rating": PayloadSchemaType.INTEGER,
+                    "marketplace": PayloadSchemaType.KEYWORD,
+                }
+                for field, schema in indexed_fields.items():
+                    try:
+                        self._qdrant_client.create_payload_index(
+                            collection_name=name,
+                            field_name=field,
+                            field_schema=schema,
+                        )
+                    except Exception:
+                        pass
             except Exception as e:
                 logger.error(f"Failed to create Qdrant collection: {e}")
 
