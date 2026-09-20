@@ -20,21 +20,30 @@ EMBEDDING_DIM = 1536
 class EmbeddingService:
     """
     Generate embeddings for text content.
-    Uses local SentenceTransformer ('all-MiniLM-L6-v2') for fast, free embeddings.
+    Uses FastEmbed (ONNX runtime, <80MB RAM) with SentenceTransformer fallback.
     Falls back to deterministic hash if model fails to load.
     """
 
     def __init__(self):
         self.model = None
-        self.model_name = "all-MiniLM-L6-v2"
+        self.model_name = "sentence-transformers/all-MiniLM-L6-v2"
+        self._is_fastembed = False
 
+        # Try fastembed first (ultra-lightweight ONNX runtime, prevents Out Of Memory on 512MB RAM free tier)
         try:
-            from sentence_transformers import SentenceTransformer
-            # Load local model (downloads on first run)
-            self.model = SentenceTransformer(self.model_name)
-            logger.info(f"✅ Local embedding model loaded: {self.model_name}")
+            from fastembed import TextEmbedding
+            self.model = TextEmbedding(self.model_name)
+            self._is_fastembed = True
+            logger.info(f"✅ FastEmbed ONNX model loaded: {self.model_name}")
         except Exception as e:
-            logger.warning(f"Failed to load sentence-transformers: {e}. Using hash fallback.")
+            logger.info(f"FastEmbed not available ({e}), trying sentence-transformers...")
+            try:
+                from sentence_transformers import SentenceTransformer
+                self.model = SentenceTransformer("all-MiniLM-L6-v2")
+                self._is_fastembed = False
+                logger.info("✅ SentenceTransformer model loaded: all-MiniLM-L6-v2")
+            except Exception as e2:
+                logger.warning(f"Failed to load embedding models: {e2}. Using hash fallback.")
         
         # Simple cache for query embeddings
         self._cache: dict[str, list[float]] = {}
@@ -54,9 +63,11 @@ class EmbeddingService:
             return res
 
         try:
-            # Generate embedding (synchronous, but fast on CPU for single text)
-            embedding = self.model.encode(text, convert_to_numpy=True).tolist()
-            self._cache[text] = embedding  # Update cache
+            if self._is_fastembed:
+                embedding = list(self.model.embed([text]))[0].tolist()
+            else:
+                embedding = self.model.encode(text, convert_to_numpy=True).tolist()
+            self._cache[text] = embedding
             return embedding
         except Exception as e:
             logger.error(f"Embedding error: {e}")
@@ -70,8 +81,10 @@ class EmbeddingService:
             return [self._hash_embedding(t) for t in texts]
 
         try:
-            # Batch embedding
-            embeddings = self.model.encode(texts, convert_to_numpy=True).tolist()
+            if self._is_fastembed:
+                embeddings = [e.tolist() for e in self.model.embed(texts)]
+            else:
+                embeddings = self.model.encode(texts, convert_to_numpy=True).tolist()
             return embeddings
         except Exception as e:
             logger.error(f"Batch embedding error: {e}")
